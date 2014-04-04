@@ -59,19 +59,20 @@ function proxy.get()
 	local cache_key = proxy.cache_key()
 	local cache_content, err = proxy.db:get(cache_key)
 
-	if cache_content then
-		local res = ""
-		if type(cache_content) == "table" then
-			res = cache_content[1]
-		elseif type(cache_content) == "string" then
-			res = cache_content
-		end
-	
+	local cache_string = ""
+	if type(cache_content) == "table" then
+		cache_string = cache_content[1]
+	elseif type(cache_content) == "string" then
+		cache_string = cache_content
+	end
+
+	if cache_string and cache_string ~= "not_found" then
+		local res = cache_string
 		return proxy.cjson.decode(res), "HIT"
 	else
-		res = proxy.fetch()
+		local res = proxy.fetch()
 		if res.status == ngx.HTTP_OK then
-			db:set(cache_key, proxy.cjson.encode(res))
+			proxy.db:set(cache_key, proxy.cjson.encode(res))
 			return res, "MISS"
 		end
 	end
