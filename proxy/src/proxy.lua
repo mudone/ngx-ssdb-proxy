@@ -39,7 +39,7 @@ function proxy.response(res, x_cache)
 	ngx.exit(res.status)
 end
 
-function proxy.get()
+function proxy.cache_key()
 	local args = ""
 	if ngx.var.args ~= nil then
 		args = ngx.var.args
@@ -47,8 +47,18 @@ function proxy.get()
 	
 	local cache_raw = ngx.var.host..ngx.var.request_uri..args
 	local cache_key = ngx.md5(cache_raw)
+
+	return cache_key
+end
+
+function proxy.purge()
+	return proxy.db:del(proxy.cache_key())
+end
+
+function proxy.get()
+	local cache_key = proxy.cache_key()
 	local cache_content, err = proxy.db:get(cache_key)
-	
+
 	if cache_content then
 		local res = ""
 		if type(cache_content) == "table" then
@@ -70,8 +80,12 @@ end
 function proxy.run()
 	proxy.db_connect()
 
-	local res, x_cache = proxy.get()
-	return proxy.response(res, x_cache)
+	if ngx.var.request_method == "PURGE" then
+		proxy.purge()
+	else
+		local res, x_cache = proxy.get()
+		return proxy.response(res, x_cache)
+	end
 end
 
 proxy.run()
