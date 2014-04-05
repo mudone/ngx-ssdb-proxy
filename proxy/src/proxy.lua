@@ -6,11 +6,10 @@ proxy.db = proxy.ssdb:new()
 function proxy.db_connect()
 	local ok, err = proxy.db:connect("127.0.0.1", "8888")
 	if not ok then
+		ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR 
 		ngx.say("500")
-		ngx.exit(ngx.HTTP_INTERNAL_SERVER_ERROR)
-		return false
+		return ngx.exit(ngx.HTTP_INTERNAL_SERVER_ERROR)
 	end
-	return true
 end
 
 function proxy.fetch ()
@@ -42,19 +41,22 @@ function proxy.response(res, x_cache)
 		ngx.print(res.body)
 	end
 	
-	ngx.exit(res.status)
+	return ngx.exit(res.status)
 end
 
 function proxy.cache_key()
-	local args = ""
-	if ngx.var.args ~= nil then
-		args = ngx.var.args
-	end
-	
-	local cache_raw = ngx.var.host..ngx.var.request_uri..args
-	local cache_key = ngx.md5(cache_raw)
+        local cache_raw = ngx.var.cache_key
+        if cache_raw == nil then
+                local args = ""
+                if ngx.var.args ~= nil then
+                        args = ngx.var.args
+                end
+                cache_raw = ngx.var.host..ngx.var.uri..ngx.var.is_args..args
+        end
 
-	return cache_key
+        local cache_key = ngx.md5(cache_raw)
+
+        return cache_key
 end
 
 function proxy.purge()
@@ -85,9 +87,7 @@ function proxy.get()
 end
 
 function proxy.run()
-	if not proxy.db_connect() then
-		return
-	end
+	proxy.db_connect()
 
 	if ngx.var.request_method == "PURGE" then
 		proxy.purge()
