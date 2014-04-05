@@ -8,8 +8,9 @@ function proxy.db_connect()
 	if not ok then
 		ngx.say("500")
 		ngx.exit(ngx.HTTP_INTERNAL_SERVER_ERROR)
-		return
+		return false
 	end
+	return true
 end
 
 function proxy.fetch ()
@@ -27,6 +28,7 @@ function proxy.fetch ()
 	res = ngx.location.capture (
 		'/proxy', {method = method, always_forward_body = true, copy_all_vars = true}
 	)
+
 	return res
 end
 
@@ -35,7 +37,11 @@ function proxy.response(res, x_cache)
 		ngx.header[k] = v
 	end
 	ngx.header["X-Cache"] = x_cache
-	ngx.print(res.body)
+
+	if res.status == ngx.HTTP_OK then
+		ngx.print(res.body)
+	end
+	
 	ngx.exit(res.status)
 end
 
@@ -71,15 +77,17 @@ function proxy.get()
 		return proxy.cjson.decode(res), "HIT"
 	else
 		local res = proxy.fetch()
-		if res.status == ngx.HTTP_OK then
+		if res.status == ngx.HTTP_OK and ngx.var.request_method ~= "HEAD" then
 			proxy.db:set(cache_key, proxy.cjson.encode(res))
-			return res, "MISS"
 		end
+		return res, "MISS"
 	end
 end
 
 function proxy.run()
-	proxy.db_connect()
+	if not proxy.db_connect() then
+		return
+	end
 
 	if ngx.var.request_method == "PURGE" then
 		proxy.purge()
@@ -90,4 +98,3 @@ function proxy.run()
 end
 
 proxy.run()
-
