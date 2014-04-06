@@ -10,7 +10,10 @@ function proxy.db_connect()
 		ngx.say("500")
 		return ngx.exit(ngx.HTTP_INTERNAL_SERVER_ERROR)
 	end
-	proxy.db:set_keepalive(0, 32)
+end
+
+function proxy.db_keepalive()
+	return proxy.db:set_keepalive(0, 32)
 end
 
 function proxy.fetch ()
@@ -96,6 +99,8 @@ function proxy.run()
 		local res, x_cache = proxy.get()
 		return proxy.response(res, x_cache)
 	end
+
+	proxy.db_keepalive()
 end
 
 proxy.run()
